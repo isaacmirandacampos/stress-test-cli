@@ -1,19 +1,18 @@
 package cmd
 
 import (
-	`fmt`
+	`context`
 	`net/http`
-	`sync/atomic`
+	`time`
 )
 
-func request(url string, statusCodeSuccess *int32) {
-	res, err := http.Get(url)
+func request(url string) (*http.Response, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
-	if res.StatusCode == 200 {
-		atomic.AddInt32(statusCodeSuccess, 1)
-	}
-	fmt.Printf("Status code %v \n", res.StatusCode)
+	client := &http.Client{}
+	return client.Do(req)
 }
