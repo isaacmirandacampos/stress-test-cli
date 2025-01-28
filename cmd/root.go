@@ -5,12 +5,15 @@ Copyright © 2025 Isaac de Miranda Campos
 package cmd
 
 import (
+	`context`
+	`errors`
 	`fmt`
 	"os"
 	`sync`
 	`time`
 
 	"github.com/spf13/cobra"
+	"golang.org/x/net/http2"
 )
 
 var rootCmd = &cobra.Command{
@@ -46,9 +49,20 @@ var rootCmd = &cobra.Command{
 			go func(url string) {
 				defer wg.Done()
 				defer func() { <-channel }()
-				res, err := request(url)
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				res, err := request(&ctx, url)
 				if err != nil {
-					fmt.Println(err)
+					var http2Err http2.GoAwayError
+					if errors.As(err, &http2Err) {
+						if http2Err.ErrCode == http2.ErrCodeEnhanceYourCalm {
+							summaryStatusCode(&statusCodes, 429)
+						}
+					}
+					fmt.Printf("request error: %s\n", err)
+					if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+						summaryStatusCode(&statusCodes, 408)
+					}
 					return
 				}
 				summaryStatusCode(&statusCodes, res.StatusCode)
