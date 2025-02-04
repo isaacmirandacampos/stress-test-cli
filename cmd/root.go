@@ -1,19 +1,17 @@
 /*
 Copyright © 2025 Isaac de Miranda Campos
-
 */
 package cmd
 
 import (
-	`context`
-	`errors`
-	`fmt`
+	"context"
+	"errors"
+	"fmt"
 	"os"
-	`sync`
-	`time`
+	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/net/http2"
 )
 
 var rootCmd = &cobra.Command{
@@ -29,14 +27,17 @@ var rootCmd = &cobra.Command{
 		}
 		if url == "" {
 			fmt.Println("url is required")
+			return
 		}
 		requests, err := cmd.Flags().GetInt("requests")
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
 		concurrency, err := cmd.Flags().GetInt("concurrency")
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
 		fmt.Printf("url: %s, requests: %d, concurrency: %d\n", url, requests, concurrency)
 
@@ -53,17 +54,11 @@ var rootCmd = &cobra.Command{
 				defer cancel()
 				res, err := request(&ctx, url)
 				if err != nil {
-					var http2Err http2.GoAwayError
-					if errors.As(err, &http2Err) {
-						if http2Err.ErrCode == http2.ErrCodeEnhanceYourCalm {
-							summaryStatusCode(&statusCodes, 429)
-						}
-					}
-					fmt.Printf("request error: %s\n", err)
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 						summaryStatusCode(&statusCodes, 408)
+						return
 					}
-					return
+					summaryStatusCode(&statusCodes, 408)
 				}
 				summaryStatusCode(&statusCodes, res.StatusCode)
 			}(url)
